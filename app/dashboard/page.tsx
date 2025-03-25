@@ -16,12 +16,12 @@ import {
   CoffeeOutlined,
   UserOutlined
 } from '@ant-design/icons';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '../../lib/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ThemeContext } from '@/app/providers';
-import { Task, TaskStatus } from '@/lib/types';
-import { getTasks, updateTask, deleteTask } from '@/lib/taskService';
-import TaskListView from '@/components/TaskListView';
+import { ThemeContext } from '../providers';
+import { Task, TaskStatus } from '../../lib/types';
+import { getTasks, updateTask, deleteTask } from '../../lib/taskService';
+import TaskListView from '../components/TaskListView';
 import KanbanBoard from '../components/KanbanBoard';
 import TaskForm from '../components/TaskForm';
 import Loading from '../loading';
@@ -31,7 +31,7 @@ const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
 
 export default function DashboardPage() {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const { isDarkMode } = useContext(ThemeContext);
   const [collapsed, setCollapsed] = useState(false);
@@ -144,7 +144,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await signOut();
+      await logout();
       router.push('/login');
     } catch (error) {
       console.error('Error logging out:', error);

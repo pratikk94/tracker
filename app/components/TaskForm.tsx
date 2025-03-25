@@ -2,9 +2,9 @@
 
 import React, { useEffect } from 'react';
 import { Form, Input, Select, DatePicker, Button, Space } from 'antd';
-import { Task, TaskStatus, TaskPriority, TaskType } from '@/lib/types';
-import { addTask, updateTask } from '@/lib/taskService';
+import { Task, TaskStatus, TaskPriority } from '@/lib/types';
 import dayjs from 'dayjs';
+import { useAuth } from '@/lib/AuthContext';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -18,6 +18,7 @@ interface TaskFormProps {
 
 export default function TaskForm({ open, onClose, onSuccess, editingTask }: TaskFormProps) {
   const [form] = Form.useForm();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (editingTask) {
@@ -34,13 +35,24 @@ export default function TaskForm({ open, onClose, onSuccess, editingTask }: Task
     try {
       const taskData = {
         ...values,
+        userId: user?.uid,
         deadline: values.deadline.toISOString()
       };
 
-      if (editingTask) {
-        await updateTask(editingTask.id, taskData);
-      } else {
-        await addTask(taskData);
+      const endpoint = '/api/tasks';
+      const method = editingTask ? 'PUT' : 'POST';
+      const url = editingTask ? `${endpoint}/${editingTask.id}` : endpoint;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(taskData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save task');
       }
 
       onSuccess();

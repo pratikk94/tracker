@@ -1,5 +1,6 @@
 export type TaskStatus = 'todo' | 'in-progress' | 'completed';
-export type TaskPriority = 'high' | 'medium' | 'low';
+export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskType = 'task' | 'meal' | 'water' | 'schedule';
 
 export interface RecurrencePattern {
   frequency: 'daily' | 'weekly' | 'monthly';
@@ -9,19 +10,20 @@ export interface RecurrencePattern {
 
 export interface Task {
   id: string;
+  userId: string;
   title: string;
-  description: string;
+  description?: string;
   status: TaskStatus;
   priority: TaskPriority;
+  type: TaskType;
   deadline: string;
   createdAt: string;
+  updatedAt: string;
   completedAt: string | null;
-  userId: string;
   isRecurring?: boolean;
   isActive?: boolean;
   recurrencePattern?: RecurrencePattern;
   tags?: string[];
-  type?: 'task' | 'meal' | 'sleep' | 'water' | 'schedule';
 }
 
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';

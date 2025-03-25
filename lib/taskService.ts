@@ -771,4 +771,52 @@ export async function createSchedule(scheduleData: Omit<ScheduleItem, 'id' | 'cr
     console.error('Error creating schedule item:', error);
     throw error;
   }
-} 
+}
+
+// Get all tasks for a user
+export const getTasks = async (userId: string): Promise<Task[]> => {
+  const tasksRef = collection(db, 'tasks');
+  const q = query(tasksRef, where('userId', '==', userId));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+};
+
+// Get tasks by status
+export const getTasksByStatus = async (userId: string, status: TaskStatus): Promise<Task[]> => {
+  const tasksRef = collection(db, 'tasks');
+  const q = query(tasksRef, 
+    where('userId', '==', userId),
+    where('status', '==', status)
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+};
+
+// Add a new task
+export const addTask = async (taskData: Partial<Task>): Promise<string> => {
+  const tasksRef = collection(db, 'tasks');
+  const now = serverTimestamp();
+  const task = {
+    ...taskData,
+    createdAt: now,
+    updatedAt: now
+  };
+  const docRef = await addDoc(tasksRef, task);
+  return docRef.id;
+};
+
+// Update a task
+export const updateTask = async (taskId: string, updates: Partial<Task>): Promise<void> => {
+  const taskRef = doc(db, 'tasks', taskId);
+  const now = serverTimestamp();
+  await updateDoc(taskRef, {
+    ...updates,
+    updatedAt: now
+  });
+};
+
+// Delete a task
+export const deleteTask = async (taskId: string): Promise<void> => {
+  const taskRef = doc(db, 'tasks', taskId);
+  await deleteDoc(taskRef);
+}; 
