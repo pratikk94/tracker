@@ -1,0 +1,234 @@
+@import 'antd/dist/reset.css';
+
+:root {
+  --primary-color: #1890ff;
+  --secondary-color: #52c41a;
+  --success-color: #52c41a;
+  --danger-color: #ff4d4f;
+  --warning-color: #faad14;
+  --background-color: #f0f2f5;
+  --card-color: #ffffff;
+  --text-primary: #000000;
+  --text-secondary: #595959;
+  --border-color: #d9d9d9;
+  --priority-high: #ff4d4f;
+  --priority-medium: #faad14;
+  --priority-low: #52c41a;
+  --shadow-color: rgba(0, 0, 0, 0.05);
+  --transition-speed: 0.3s;
+}
+
+[data-theme='dark'] {
+  --background-color: #141414;
+  --card-color: #1f1f1f;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --border-color: #303030;
+  --shadow-color: rgba(0, 0, 0, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background-color: var(--background-color);
+  color: var(--text-primary);
+  transition: background-color var(--transition-speed) ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Priority styles */
+.priority-high-tag {
+  background-color: var(--priority-high) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.priority-medium-tag {
+  background-color: var(--priority-medium) !important;
+  color: black !important;
+  border: none !important;
+}
+
+.priority-low-tag {
+  background-color: var(--priority-low) !important;
+  color: white !important;
+  border: none !important;
+}
+
+/* Custom layout styles */
+.site-layout-content {
+  min-height: 280px;
+  padding: 24px;
+  background: var(--card-color);
+  transition: background-color var(--transition-speed) ease;
+}
+
+.logo {
+  height: 32px;
+  margin: 16px;
+  color: var(--primary-color);
+  font-size: 20px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-speed) ease;
+}
+
+.ant-layout-sider-collapsed .logo {
+  font-size: 0;
+}
+
+.site-layout-background {
+  background: var(--card-color);
+  transition: background-color var(--transition-speed) ease;
+}
+
+/* Task card styles */
+.task-card {
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all var(--transition-speed) ease;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.task-card:hover {
+  box-shadow: 0 4px 12px var(--shadow-color);
+  transform: translateY(-2px);
+}
+
+.task-card .ant-card-head {
+  border-bottom: none;
+  padding: 12px 16px 0;
+}
+
+.task-card .ant-card-body {
+  padding: 12px 16px;
+}
+
+/* Auth form styles */
+.auth-form {
+  max-width: 400px;
+  margin: 0 auto;
+  background-color: var(--card-color);
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.auth-form-button {
+  width: 100%;
+}
+
+/* Kanban board styles */
+.kanban-column {
+  min-height: 500px;
+  padding: 8px;
+  border-radius: 8px;
+  background-color: var(--card-color);
+  box-shadow: 0 2px 8px var(--shadow-color);
+  transition: background-color var(--transition-speed) ease;
+}
+
+.kanban-column-header {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-header {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Daily log styles */
+.daily-log-card {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Analytics styles */
+.analytics-card {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.analytics-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.analytics-metric-card {
+  text-align: center;
+  padding: 16px;
+  border-radius: 8px;
+  background-color: var(--card-color);
+  box-shadow: 0 2px 8px var(--shadow-color);
+  transition: all var(--transition-speed) ease;
+}
+
+.analytics-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.analytics-metric-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  transition: background-color var(--transition-speed) ease;
+}
+
+.theme-toggle:hover {
+  background-color: var(--border-color);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .analytics-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .kanban-container {
+    flex-direction: column;
+  }
+  
+  .kanban-column {
+    margin-bottom: 16px;
+  }
+} 
