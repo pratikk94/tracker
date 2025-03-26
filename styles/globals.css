@@ -139,9 +139,21 @@ a {
 }
 
 /* Kanban board styles */
+.kanban-container {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  width: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
 .kanban-column {
+  flex: 1 0 300px;
+  min-width: 300px;
   min-height: 500px;
-  padding: 8px;
+  padding: 0;
   border-radius: 8px;
   background-color: var(--card-color);
   box-shadow: 0 2px 8px var(--shadow-color);
@@ -226,9 +238,13 @@ a {
   
   .kanban-container {
     flex-direction: column;
+    overflow-x: hidden;
   }
   
   .kanban-column {
+    flex: 1 0 auto;
+    width: 100%;
+    min-width: 100%;
     margin-bottom: 16px;
   }
 } 

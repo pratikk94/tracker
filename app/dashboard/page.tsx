@@ -145,7 +145,7 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push('/login');
+      router.push('/auth/login');
     } catch (error) {
       console.error('Error logging out:', error);
     }

@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useRef } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { ThemeContext } from '@/app/providers';
 import { useRouter } from 'next/navigation';
-import { Layout, Typography, Card, Row, Col, Spin, Select, Button, Empty, Statistic, Divider, Space, Alert, message, Modal, Form, TimePicker, Table, Tag, InputNumber, Radio } from 'antd';
+import { 
+  Layout, Typography, Card, Row, Col, Spin, Select, Button, Empty, Statistic, Divider, Space, Alert, notification, Modal, Form, TimePicker, Table, Tag, InputNumber, Radio
+} from 'antd';
 import {
   DashboardOutlined,
   BarChartOutlined,
@@ -36,6 +38,8 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { getTasksByStatus, updateTask, deleteTask } from '@/lib/taskService';
 import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+dayjs.extend(customParseFormat);
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
 
@@ -129,12 +133,16 @@ const AnalyticsPage = () => {
   // Add overdueTasks to state
   const [overdueTasks, setOverdueTasks] = useState(0);
 
-  // Initialize forms with default values
+  // Add these constant values for the form watches
+  const adjustmentTypeWatch = Form.useWatch('adjustmentType', adjustAwakeForm);
+  const waterTypeWatch = Form.useWatch('waterType', waterIntakeForm);
+
+  // Properly initialize forms after render (not during render)
   useEffect(() => {
-    form.resetFields();
-    adjustAwakeForm.resetFields();
-    waterIntakeForm.resetFields();
-  }, []);
+    if (form) form.resetFields();
+    if (adjustAwakeForm) adjustAwakeForm.resetFields();
+    if (waterIntakeForm) waterIntakeForm.resetFields();
+  }, [form, adjustAwakeForm, waterIntakeForm]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -195,7 +203,10 @@ const AnalyticsPage = () => {
         
       } catch (error) {
         console.error('Error fetching analytics data:', error);
-        message.error('Failed to fetch analytics data');
+        notification.error({
+          message: 'Error',
+          description: 'Failed to fetch analytics data'
+        });
       } finally {
         setIsLoading(false);
         setIsFirebaseLoading(false);
@@ -435,6 +446,7 @@ const AnalyticsPage = () => {
     try {
       const days = parseInt(timeframe);
       const startDate = format(subDays(new Date(), days), 'yyyy-MM-dd');
+      const today = format(new Date(), 'yyyy-MM-dd');
       
       const logsRef = collection(db, 'dailyLogs');
       const q = query(
@@ -449,6 +461,38 @@ const AnalyticsPage = () => {
       // Client-side filtering
       const filteredLogs = logs.filter(log => log.date >= startDate)
         .sort((a, b) => b.date.localeCompare(a.date));
+      
+      // Check if today's log exists
+      const todayLog = logs.find(log => log.date === today);
+      
+      // If no log exists for today, create one with current time as wake up time
+      if (!todayLog) {
+        console.log('No log for today, creating one...');
+        const newLogData = {
+          date: today,
+          userId: user.uid,
+          wakeUpTime: new Date().toISOString(), // Use current time as wake up time
+          createdAt: new Date().toISOString(),
+          totalWorkTime: 0,
+          totalBreakTime: 0,
+          records: [],
+          notes: ''
+        };
+        
+        // Add new log to Firestore
+        try {
+          const docRef = await addDoc(collection(db, 'dailyLogs'), newLogData);
+          console.log('Created new daily log with ID:', docRef.id);
+          
+          // Add the new log to our filtered logs
+          filteredLogs.unshift({ 
+            id: docRef.id, 
+            ...newLogData 
+          } as DailyLog);
+        } catch (error) {
+          console.error('Error creating daily log:', error);
+        }
+      }
       
       setDailyLogs(filteredLogs);
       
@@ -741,7 +785,10 @@ const AnalyticsPage = () => {
       // Extract the time from the dayjs object and ensure it's valid
       const wakeDayjs = values.wakeUpTime;
       if (!wakeDayjs) {
-        message.error('Please select a valid time');
+        notification.error({
+          message: 'Error',
+          description: 'Please select a valid time'
+        });
         return;
       }
       
@@ -761,60 +808,112 @@ const AnalyticsPage = () => {
       // Recalculate stats with updated logs
       calculateWakeUpStats(updatedLogs);
       
-      message.success('Wake up time updated successfully');
+      notification.success({
+        message: 'Success',
+        description: 'Wake up time updated successfully'
+      });
       setEditWakeUpModal(false);
       
       // Force re-fetch to ensure data is updated
       fetchDailyLogs();
     } catch (error) {
       console.error('Error updating wake up time:', error);
-      message.error('Failed to update wake up time');
-    }
-  };
-
-  const handleAdjustAwakeTime = () => {
-    setShowAdjustAwakeModal(true);
-    
-    // Set initial form values
-    if (todayLog) {
-      adjustAwakeForm.setFieldsValue({ 
-        adjustmentMinutes: manualAwakeAdjustment,
-        adjustmentType: adjustmentType,
-        fixedWakeTime: dayjs(todayLog.wakeUpTime) // Wrap with dayjs
+      notification.error({
+        message: 'Error',
+        description: 'Failed to update wake up time'
       });
     }
   };
 
+  const handleAdjustAwakeTime = () => {
+    // Reset the form first to clear any previous values
+    adjustAwakeForm.resetFields();
+    
+    // Set form values after reset
+    setTimeout(() => {
+      adjustAwakeForm.setFieldsValue({
+        adjustmentType: adjustmentType,
+        adjustmentMinutes: manualAwakeAdjustment,
+        fixedWakeTime: todayLog && todayLog.wakeUpTime ? dayjs(todayLog.wakeUpTime) : undefined
+      });
+      
+      console.log('Form initialized with:', {
+        adjustmentType,
+        adjustmentMinutes: manualAwakeAdjustment,
+        wakeUpTime: todayLog?.wakeUpTime
+      });
+    }, 100);
+    
+    // Show the modal
+    setShowAdjustAwakeModal(true);
+  };
+
   const handleSaveAwakeAdjustment = async () => {
     try {
-      const values = await adjustAwakeForm.validateFields();
+      // First, determine which fields to validate based on the current adjustment type
+      let fieldsToValidate = [];
       
-      if (values.adjustmentType === 'minutes') {
+      // Get the current adjustment type directly from state rather than form to avoid race conditions
+      if (adjustmentType === 'minutes') {
+        fieldsToValidate = ['adjustmentMinutes'];
+      } else {
+        fieldsToValidate = ['fixedWakeTime'];
+      }
+      
+      // Log current form values for debugging
+      console.log('Current form values:', adjustAwakeForm.getFieldsValue());
+      console.log('Validating fields:', fieldsToValidate);
+      
+      // Validate only the fields that are relevant to the current adjustment type
+      const values = await adjustAwakeForm.validateFields(fieldsToValidate);
+      console.log('Validated values:', values);
+      
+      if (adjustmentType === 'minutes') {
         // Set manual minutes adjustment
-        const minutes = parseInt(values.adjustmentMinutes || 0);
+        // Make sure to handle any potential non-numeric inputs safely
+        const minutesValue = values.adjustmentMinutes;
+        const minutes = typeof minutesValue === 'number' ? minutesValue : parseInt(minutesValue || '0');
+        
+        if (isNaN(minutes)) {
+          throw new Error('Invalid adjustment minutes');
+        }
+        
+        console.log('Setting adjustment minutes:', minutes);
         setManualAwakeAdjustment(minutes);
-        setAdjustmentType('minutes');
         
         // Save to localStorage for persistence
         localStorage.setItem('awakeTimeAdjustment', minutes.toString());
         localStorage.setItem('adjustmentType', 'minutes');
         
-        message.success(`Awake time ${minutes >= 0 ? 'increased' : 'decreased'} by ${Math.abs(minutes)} minutes`);
+        notification.success({
+          message: 'Success',
+          description: `Awake time ${minutes >= 0 ? 'increased' : 'decreased'} by ${Math.abs(minutes)} minutes`
+        });
       } else {
         // Calculate difference between original wake time and new fixed time
         if (todayLog && todayLog.wakeUpTime) {
           const originalWakeTime = new Date(todayLog.wakeUpTime);
           const newWakeTimeObj = values.fixedWakeTime; // This is a dayjs object
           
-          if (!newWakeTimeObj) {
-            message.error('Please select a valid time');
+          if (!newWakeTimeObj || !newWakeTimeObj.isValid()) {
+            notification.error({
+              message: 'Error',
+              description: 'Please select a valid time'
+            });
             return;
           }
           
+          console.log('Fixed wake time:', newWakeTimeObj.format('HH:mm'));
+          
           // Create a new date using today's date and the selected time
           const today = new Date();
-          const newWakeTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 
-                                      newWakeTimeObj.hour(), newWakeTimeObj.minute());
+          const newWakeTime = new Date(
+            today.getFullYear(), 
+            today.getMonth(), 
+            today.getDate(), 
+            newWakeTimeObj.hour(), 
+            newWakeTimeObj.minute()
+          );
           
           // If the new time is after now, assume it's for yesterday 
           // (user woke up after midnight)
@@ -838,9 +937,15 @@ const AnalyticsPage = () => {
           localStorage.setItem('awakeTimeAdjustment', diffMinutes.toString());
           localStorage.setItem('adjustmentType', 'time');
           
-          message.success(`Wake-up time adjusted (${diffMinutes >= 0 ? '+' : ''}${diffMinutes} minutes)`);
+          notification.success({
+            message: 'Success',
+            description: `Wake-up time adjusted (${diffMinutes >= 0 ? '+' : ''}${diffMinutes} minutes)`
+          });
         } else {
-          message.error('No wake-up time recorded for today');
+          notification.error({
+            message: 'Error',
+            description: 'No wake-up time recorded for today'
+          });
         }
       }
       
@@ -850,7 +955,25 @@ const AnalyticsPage = () => {
       setShowAdjustAwakeModal(false);
     } catch (error) {
       console.error('Error saving awake time adjustment:', error);
-      message.error('Failed to save adjustment');
+      
+      // More detailed error logging
+      if (error.errorFields) {
+        console.error('Form validation errors:', error.errorFields);
+      }
+      
+      // More specific error message
+      if (error.errorFields && error.errorFields.length > 0) {
+        const fieldErrors = error.errorFields.map(field => `${field.name.join('.')}: ${field.errors.join(', ')}`).join('; ');
+        notification.error({
+          message: 'Form Validation Error',
+          description: `Please fix the following errors: ${fieldErrors}`
+        });
+      } else {
+        notification.error({
+          message: 'Error',
+          description: error.message || 'Failed to save adjustment'
+        });
+      }
     }
   };
 
@@ -899,14 +1022,20 @@ const AnalyticsPage = () => {
       
       // Update the water data immediately
       setWaterIntakeModal(false);
-      message.success(`${amount}ml water intake added`);
+      notification.success({
+        message: 'Success',
+        description: `${amount}ml water intake added`
+      });
       
       // Refresh the water data
       await fetchWaterIntakeData();
       
     } catch (error) {
       console.error('Error in water intake form:', error);
-      message.error('Failed to add water intake');
+      notification.error({
+        message: 'Error',
+        description: 'Failed to add water intake'
+      });
     }
   };
 
@@ -945,6 +1074,141 @@ const AnalyticsPage = () => {
   return (
     <>
       <style>{globalStyles}</style>
+      
+      {/* Wake Up Time Adjustment Modal */}
+      <Modal
+        title="Adjust Wake-up Time"
+        open={showAdjustAwakeModal}
+        onCancel={() => setShowAdjustAwakeModal(false)}
+        destroyOnClose={true}
+        footer={[
+          <Button key="cancel" onClick={() => setShowAdjustAwakeModal(false)}>
+            Cancel
+          </Button>,
+          <Button key="submit" type="primary" onClick={handleSaveAwakeAdjustment}>
+            Save
+          </Button>
+        ]}
+      >
+        <Form 
+          form={adjustAwakeForm} 
+          layout="vertical"
+          preserve={false}
+          onValuesChange={(changedValues) => {
+            // If adjustment type changed, update the state
+            if ('adjustmentType' in changedValues) {
+              setAdjustmentType(changedValues.adjustmentType);
+            }
+
+            console.log('Form values changed:', changedValues);
+          }}
+        >
+          <Form.Item
+            name="adjustmentType"
+            label="Adjustment Type"
+            initialValue={adjustmentType}
+          >
+            <Radio.Group 
+              onChange={(e) => setAdjustmentType(e.target.value)}
+            >
+              <Radio value="minutes">Adjust by Minutes</Radio>
+              <Radio value="time">Set Exact Wake Time</Radio>
+            </Radio.Group>
+          </Form.Item>
+
+          {adjustmentType === 'minutes' && (
+            <Form.Item
+              name="adjustmentMinutes"
+              label="Adjust Time (in minutes)"
+              rules={[{ required: true, message: 'Please enter an adjustment value' }]}
+              initialValue={manualAwakeAdjustment}
+            >
+              <InputNumber 
+                placeholder="Enter minutes (can be negative)" 
+                style={{ width: '100%' }}
+                min={-120}
+                max={120}
+              />
+            </Form.Item>
+          )}
+
+          {adjustmentType === 'time' && (
+            <Form.Item
+              name="fixedWakeTime"
+              label="Exact Wake-up Time"
+              rules={[{ required: true, message: 'Please select a time' }]}
+              initialValue={todayLog && todayLog.wakeUpTime ? dayjs(todayLog.wakeUpTime) : undefined}
+            >
+              <TimePicker 
+                format="HH:mm" 
+                style={{ width: '100%' }} 
+                placeholder="Select time"
+                showNow={false}
+                minuteStep={5}
+                allowClear={false}
+              />
+            </Form.Item>
+          )}
+
+          {todayLog && todayLog.wakeUpTime && (
+            <Alert
+              message="Current Wake-up Time"
+              description={`${format(new Date(todayLog.wakeUpTime), 'hh:mm a')} (Adjustment: ${manualAwakeAdjustment} minutes)`}
+              type="info"
+              showIcon
+              style={{ marginTop: '16px' }}
+            />
+          )}
+        </Form>
+      </Modal>
+
+      {/* Water Intake Modal */}
+      <Modal
+        title="Add Water Intake"
+        open={waterIntakeModal}
+        onCancel={() => setWaterIntakeModal(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setWaterIntakeModal(false)}>
+            Cancel
+          </Button>,
+          <Button key="submit" type="primary" onClick={handleWaterIntakeSubmit}>
+            Add
+          </Button>
+        ]}
+      >
+        <Form form={waterIntakeForm} layout="vertical">
+          <Form.Item
+            name="waterType"
+            label="Water Type"
+            initialValue="glass"
+          >
+            <Radio.Group>
+              <Radio value="glass">Glass (250ml)</Radio>
+              <Radio value="bottle">Bottle (500ml)</Radio>
+              <Radio value="custom">Custom Amount</Radio>
+            </Radio.Group>
+          </Form.Item>
+
+          <Form.Item
+            name="quantity"
+            label="Quantity"
+            initialValue={1}
+            style={{ display: waterTypeWatch !== 'custom' ? 'block' : 'none' }}
+          >
+            <InputNumber min={1} max={10} style={{ width: '100%' }} />
+          </Form.Item>
+
+          <Form.Item
+            name="customAmount"
+            label="Custom Amount (ml)"
+            initialValue={250}
+            style={{ display: waterTypeWatch === 'custom' ? 'block' : 'none' }}
+          >
+            <InputNumber min={50} max={2000} step={50} style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+      
       <Form.Provider>
         <Layout style={{ minHeight: '100vh', background: '#141414' }} data-theme={isDarkMode ? 'dark' : 'light'}>
           <Sider 
@@ -1005,7 +1269,11 @@ const AnalyticsPage = () => {
                     background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
                     border: 'none'
                   }}
-                  bodyStyle={{ padding: '24px' }}
+                  styles={{
+                    body: { 
+                      padding: '24px' 
+                    }
+                  }}
                 >
                   <div className="awake-time-container">
                     <div style={{ fontSize: '18px', fontWeight: 500, marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
@@ -1093,7 +1361,9 @@ const AnalyticsPage = () => {
                 <Card 
                   title={<Typography.Title level={5} style={{ margin: 0, color: '#fff' }}>Task List</Typography.Title>}
                   style={cardStyle}
-                  bodyStyle={{ padding: '24px' }}
+                  styles={{
+                    body: { padding: '24px' }
+                  }}
                 >
                   {loading ? (
                     <div style={{ textAlign: 'center', padding: '48px' }}>
@@ -1107,17 +1377,22 @@ const AnalyticsPage = () => {
                   ) : (
                     <TaskListView
                       tasks={allTasks}
-                      loading={loading}
                       onTaskUpdated={fetchAnalyticsData}
                       onTaskDeleted={async (taskId) => {
                         await deleteTask(taskId);
                         await fetchAnalyticsData();
-                        message.success('Task deleted successfully');
+                        notification.success({
+                          message: 'Success',
+                          description: 'Task deleted successfully'
+                        });
                       }}
-                      onStatusChange={async (taskId, newStatus) => {
+                      onTaskStatusChange={async (taskId, newStatus) => {
                         await updateTask(taskId, { status: newStatus });
                         await fetchAnalyticsData();
-                        message.success('Task status updated successfully');
+                        notification.success({
+                          message: 'Success',
+                          description: 'Task status updated successfully'
+                        });
                       }}
                     />
                   )}
@@ -1144,7 +1419,9 @@ const AnalyticsPage = () => {
                 <Card 
                   title={<Typography.Title level={5} style={{ margin: 0, color: '#fff' }}>Wake Up Time Analytics</Typography.Title>}
                   style={cardStyle}
-                  bodyStyle={{ padding: '24px' }}
+                  styles={{
+                    body: { padding: '24px' }
+                  }}
                 >
                   <Row gutter={[24, 24]}>
                     <Col xs={24} sm={6}>
